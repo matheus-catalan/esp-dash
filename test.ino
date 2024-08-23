@@ -830,32 +830,43 @@ String getCurrentTimestamp()
 int sendDataPrevMillis = 0;
 int count = 0;
 
-float readMQ2() {
+float readMQ2()
+{
   int analogValue = analogRead(A0);
-  float voltage = analogValue * (5.0 / 1023.0);  // Converte o valor analógico para tensão
-  return voltage;  // Ou converte para a unidade desejada, se necessário
+  float voltage = analogValue * (5.0 / 1023.0); // Converte o valor analógico para tensão
+  return voltage;                               // Ou converte para a unidade desejada, se necessário
 }
 
-float readDHT11() {
+float readDHT11()
+{
   float temperature = dht.readTemperature(); // Lê a temperatura em Celsius
-  if (isnan(temperature)) {
+  if (isnan(temperature))
+  {
     Serial.println("Failed to read from DHT sensor!");
     return 0.0; // Retorna 0.0 se a leitura falhar
   }
   return temperature;
 }
 
+float readLDR()
+{
+  float sensorValue = analogRead(D2);
+  float ldrValue = sensorValue * (5.0 / 1023.0);
+  return ldrValue;
+}
+
 void sendData()
 {
   String configName = config.name; // Substitua pelo nome da configuração real
-  String basePath = "/" + configName + "/current/";
-  String historyPath = "/" + configName + "/history/";
+  String basePath = "/enviroments/" + configName + "/current/";
+  String historyPath = "/enviroments/" + configName + "/history/";
 
   // Ler os valores dos sensores
-  float dhtValue = readDHT11();   // Leitura da temperatura do DHT11
-  float mq2Value = readMQ2();     // Leitura do MQ2
-  float lumiValue = random(200, 1000) / 10.0; // Exemplo: valores entre 20.0 e 100.0
+  float dhtValue = readDHT11();                // Leitura da temperatura do DHT11
+  float mq2Value = readMQ2();                  // Leitura do MQ2
+  float lumiValue = random(200, 1000) / 10.0;  // Exemplo: valores entre 20.0 e 100.0
   float noiseValue = random(500, 1500) / 10.0; // Exemplo: valores entre 50.0 e 150.0
+  float ldrValue = readLDR();
   String ipAddress = WiFi.localIP().toString();
   String wifiSSID = WiFi.SSID();
   String lastUpdate = getCurrentTimestamp();
@@ -865,6 +876,7 @@ void sendData()
   Serial.printf("Set mq2... %s\n", Firebase.setFloat(fbdo, basePath + "mq2", mq2Value) ? "ok" : fbdo.errorReason().c_str());
   Serial.printf("Set lumi... %s\n", Firebase.setFloat(fbdo, basePath + "lumi", lumiValue) ? "ok" : fbdo.errorReason().c_str());
   Serial.printf("Set noise... %s\n", Firebase.setFloat(fbdo, basePath + "noise", noiseValue) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set ldr... %s\n", Firebase.setFloat(fbdo, basePath + "ldr", ldrValue) ? "ok" : fbdo.errorReason().c_str());
   Serial.printf("Set ip... %s\n", Firebase.setString(fbdo, basePath + "ip", ipAddress) ? "ok" : fbdo.errorReason().c_str());
   Serial.printf("Set wifi... %s\n", Firebase.setString(fbdo, basePath + "wifi", wifiSSID) ? "ok" : fbdo.errorReason().c_str());
   Serial.printf("Set last_update... %s\n", Firebase.setString(fbdo, basePath + "last_update", lastUpdate) ? "ok" : fbdo.errorReason().c_str());
@@ -875,16 +887,102 @@ void sendData()
   json.set("mq2", mq2Value);
   json.set("lumi", lumiValue);
   json.set("noise", noiseValue);
+  json.set("ldr", ldrValue);
   json.set("ip", ipAddress);
   json.set("wifi", wifiSSID);
   json.set("last_update", lastUpdate);
 
   // Adicionar o novo registro ao histórico
- Serial.printf("Append to history... %s\n", Firebase.push(fbdo, historyPath, json) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Append to history... %s\n", Firebase.push(fbdo, historyPath, json) ? "ok" : fbdo.errorReason().c_str());
 
   Serial.println();
 }
 
+void sendData1()
+{
+  String configName = "caldeira"; // Substitua pelo nome da configuração real
+  String basePath = "/enviroments/" + configName + "/current/";
+  String historyPath = "/enviroments/" + configName + "/history/";
+
+  // Ler os valores dos sensores
+  float dhtValue = readDHT11();                // Leitura da temperatura do DHT11
+  float mq2Value = readMQ2();                  // Leitura do MQ2
+  float lumiValue = random(200, 1000) / 10.0;  // Exemplo: valores entre 20.0 e 100.0
+  float noiseValue = random(500, 1500) / 10.0; // Exemplo: valores entre 50.0 e 150.0
+  float ldrValue = readLDR();
+  String ipAddress = WiFi.localIP().toString();
+  String wifiSSID = WiFi.SSID();
+  String lastUpdate = getCurrentTimestamp();
+
+  // Atualizar os valores mais recentes nos campos específicos
+  Serial.printf("Set dht... %s\n", Firebase.setFloat(fbdo, basePath + "dht", dhtValue) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set mq2... %s\n", Firebase.setFloat(fbdo, basePath + "mq2", mq2Value) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set lumi... %s\n", Firebase.setFloat(fbdo, basePath + "lumi", lumiValue) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set noise... %s\n", Firebase.setFloat(fbdo, basePath + "noise", noiseValue) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set ldr... %s\n", Firebase.setFloat(fbdo, basePath + "ldr", ldrValue) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set ip... %s\n", Firebase.setString(fbdo, basePath + "ip", ipAddress) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set wifi... %s\n", Firebase.setString(fbdo, basePath + "wifi", wifiSSID) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set last_update... %s\n", Firebase.setString(fbdo, basePath + "last_update", lastUpdate) ? "ok" : fbdo.errorReason().c_str());
+
+  // Construir o JSON com os valores atuais e timestamp
+  FirebaseJson json;
+  json.set("dht", dhtValue);
+  json.set("mq2", mq2Value);
+  json.set("lumi", lumiValue);
+  json.set("noise", noiseValue);
+  json.set("ldr", ldrValue);
+  json.set("ip", ipAddress);
+  json.set("wifi", wifiSSID);
+  json.set("last_update", lastUpdate);
+
+  // Adicionar o novo registro ao histórico
+  Serial.printf("Append to history... %s\n", Firebase.push(fbdo, historyPath, json) ? "ok" : fbdo.errorReason().c_str());
+
+  Serial.println();
+}
+
+void sendData2()
+{
+  String configName = "fundicao"; // Substitua pelo nome da configuração real
+  String basePath = "/enviroments/" + configName + "/current/";
+  String historyPath = "/enviroments/" + configName + "/history/";
+
+  // Ler os valores dos sensores
+  float dhtValue = readDHT11();                // Leitura da temperatura do DHT11
+  float mq2Value = readMQ2();                  // Leitura do MQ2
+  float lumiValue = random(200, 1000) / 10.0;  // Exemplo: valores entre 20.0 e 100.0
+  float noiseValue = random(500, 1500) / 10.0; // Exemplo: valores entre 50.0 e 150.0
+  float ldrValue = readLDR();
+  String ipAddress = WiFi.localIP().toString();
+  String wifiSSID = WiFi.SSID();
+  String lastUpdate = getCurrentTimestamp();
+
+  // Atualizar os valores mais recentes nos campos específicos
+  Serial.printf("Set dht... %s\n", Firebase.setFloat(fbdo, basePath + "dht", dhtValue) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set mq2... %s\n", Firebase.setFloat(fbdo, basePath + "mq2", mq2Value) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set lumi... %s\n", Firebase.setFloat(fbdo, basePath + "lumi", lumiValue) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set noise... %s\n", Firebase.setFloat(fbdo, basePath + "noise", noiseValue) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set ldr... %s\n", Firebase.setFloat(fbdo, basePath + "ldr", ldrValue) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set ip... %s\n", Firebase.setString(fbdo, basePath + "ip", ipAddress) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set wifi... %s\n", Firebase.setString(fbdo, basePath + "wifi", wifiSSID) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set last_update... %s\n", Firebase.setString(fbdo, basePath + "last_update", lastUpdate) ? "ok" : fbdo.errorReason().c_str());
+
+  // Construir o JSON com os valores atuais e timestamp
+  FirebaseJson json;
+  json.set("dht", dhtValue);
+  json.set("mq2", mq2Value);
+  json.set("lumi", lumiValue);
+  json.set("noise", noiseValue);
+  json.set("ldr", ldrValue);
+  json.set("ip", ipAddress);
+  json.set("wifi", wifiSSID);
+  json.set("last_update", lastUpdate);
+
+  // Adicionar o novo registro ao histórico
+  Serial.printf("Append to history... %s\n", Firebase.push(fbdo, historyPath, json) ? "ok" : fbdo.errorReason().c_str());
+
+  Serial.println();
+}
 
 void setup()
 {
@@ -903,7 +1001,7 @@ void setup()
 
 void loop()
 {
-  
+
   handleButtonConfig(config);
 
   // if (config.configMode) {
@@ -919,5 +1017,7 @@ void loop()
   {
     sendDataPrevMillis = millis();
     sendData();
+    sendData1();
+    sendData2();
   }
 }
