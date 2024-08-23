@@ -282,7 +282,7 @@ void setup()
   connectToFirebase(config);
   // enterConfigMode(config);
   printConfig(config);
-  dht.begin();
+  initSensors();
 }
 
 void loop()

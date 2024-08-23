@@ -6,5 +6,6 @@
 String getCurrentTimestamp();
 void connectToFirebase(Config &config);
 void sendData(Config &config);
+String processFloats(String data);
 
 #endif
