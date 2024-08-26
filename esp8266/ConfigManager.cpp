@@ -33,7 +33,6 @@ void loadConfig(Config &config)
 
 void printConfig(const Config &config)
 {
-  delay(500);
   Serial.println("-----------------------------------------------------");
   Serial.print("WiFi SSID: ");
   if (config.ssid[0] != '\0')

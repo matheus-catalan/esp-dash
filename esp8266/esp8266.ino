@@ -75,9 +75,9 @@ String listSSID()
 
 void handleRoot()
 {
-  String index = listSSID(); // Leia o conteúdo HTML
+  String index = listSSID();
 
-  server.send(200, "text/html", index); // Enviar pagina Web
+  server.send(200, "text/html", index);
 }
 
 void connectToWiFi(String ssidWifi, String passwordWifi)
@@ -88,9 +88,8 @@ void connectToWiFi(String ssidWifi, String passwordWifi)
   }
 
   int count = 0;
-  WiFi.begin(ssidWifi.c_str(), passwordWifi.c_str()); // Conecta com seu roteador
+  WiFi.begin(ssidWifi.c_str(), passwordWifi.c_str());
 
-  // Espera por uma conexão
   while (count < 15)
   {
     delay(500);
@@ -227,43 +226,42 @@ void handleButtonConfig(Config &config)
   static unsigned long buttonPressTime = 0;
   static bool buttonWasPressed = false;
 
-  if (digitalRead(BUTTON_PIN) == LOW) // Botão pressionado
+  if (digitalRead(BUTTON_PIN) == LOW)
   {
     if (!buttonWasPressed)
     {
-      buttonPressTime = millis(); // Inicia a contagem do tempo
+      buttonPressTime = millis();
       buttonWasPressed = true;
     }
     else if (millis() - buttonPressTime >= 5000)
-    { // Pressionado por 5 segundos
+    {
       if (config.configMode == false)
       {
-        enterConfigMode(config); // Entra no modo de configuração
+        enterConfigMode(config);
       }
       else
       {
-        exitConfigMode(config); // Sai do modo de configuração
+        exitConfigMode(config);
       }
-      buttonPressTime = millis(); // Reinicia o tempo para evitar reexecução imediata
+      buttonPressTime = millis();
     }
   }
-  else // Botão liberado
+  else
   {
     if (buttonWasPressed)
     {
-      buttonPressTime = 0; // Reseta o contador
+      buttonPressTime = 0;
       buttonWasPressed = false;
     }
   }
 
-  // Piscar o LED se estiver no modo de configuração
   if (config.configMode)
   {
-    digitalWrite(LED_PIN, millis() % 500 < 250 ? LOW : HIGH); // Pisca a cada 500ms
+    digitalWrite(LED_PIN, millis() % 500 < 250 ? LOW : HIGH);
   }
   else
   {
-    digitalWrite(LED_PIN, HIGH); // LED desligado
+    digitalWrite(LED_PIN, HIGH);
   }
 }
 
@@ -273,14 +271,22 @@ int count = 0;
 void setup()
 {
   Serial.begin(115200);
-  delay(1000);
+  while (!Serial)
+    ;
+  Serial.print("\033[2J\033[H");
+  Serial.println("Iniciando...");
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
+  Serial.println("Carregando configurações...");
   EEPROM.begin(512);
   loadConfig(config);
+  Serial.println("Configurações carregadas.");
+  Serial.println("Conectando ao WiFi...");
   connectToWiFi(config.ssid, config.password);
+  Serial.println("Conectado ao WiFi.");
+  Serial.println("Conectando ao Firebase...");
   connectToFirebase(config);
-  // enterConfigMode(config);
+  Serial.println("Conectado ao Firebase.");
   printConfig(config);
   initSensors();
 }
@@ -289,22 +295,19 @@ void loop()
 {
 
   handleButtonConfig(config);
-
-  // if (config.configMode) {
   server.handleClient();
-  // }
 
   if (WiFi.status() != WL_CONNECTED)
   {
+    Serial.println("Conexão perdida.");
     enterConfigMode(config);
   }
 
-  if ((millis() - sendDataPrevMillis > 15000 || sendDataPrevMillis == 0))
+  if (config.configMode == false)
   {
-    if (config.configMode == false)
-    {
-      sendData(config);
-    }
-    // delay(5000);
+    checkForConfigUpdates(config);
+    checkSensorStatus(config.sound_alert);
+
+    sendData(config);
   }
 }

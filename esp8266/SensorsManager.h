@@ -15,16 +15,17 @@
 
 #define PRESENCEPIN D6
 
+#define BUZZER_PIN D7
 
 extern DHT dht;
 extern MQUnifiedsensor MQ2;
 
 struct sensorsStatus
 {
-  bool temperature;
-  bool humidity;
-  bool ldr;
-  bool mq2;
+  bool temperature = true;
+  bool humidity = true;
+  bool ldr = true;
+  bool mq2 = true;
 };
 extern sensorsStatus status;
 
@@ -34,5 +35,6 @@ float readTemperature();
 float readHumidity();
 float readMQ2();
 bool readPresence();
+void checkSensorStatus(bool sound_alert);
 
 #endif

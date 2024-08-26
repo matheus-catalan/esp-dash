@@ -7,125 +7,159 @@ FirebaseData fbdo;
 FirebaseAuth firebase_auth;
 FirebaseConfig firebase_config;
 
-String processFloats(String data, float NewValue)
+void checkForConfigUpdates(Config &config)
 {
-  // Dividir a string em valores individuais
-  int maxSize = 10;
-  String tokens[maxSize];
-  int tokenCount = 0;
+  String configName = config.name;
+  String path = "/enviroments/" + configName + "/config";
+  static unsigned long lastCheck = 0;
 
-  int startIndex = 0;
-  int commaIndex = data.indexOf(',');
-
-  // Extraí todos os valores da string
-  while (commaIndex != -1)
+  if (millis() - lastCheck >= 1000)
   {
-    tokens[tokenCount++] = data.substring(startIndex, commaIndex);
-    startIndex = commaIndex + 1;
-    commaIndex = data.indexOf(',', startIndex);
-  }
-  // Adiciona o último valor, que não tem uma vírgula após ele
-  tokens[tokenCount++] = data.substring(startIndex);
+    lastCheck = millis();
 
-  // Adiciona o novo valor à lista
-  if (tokenCount >= maxSize)
-  {
-    // Remove o valor mais antigo se houver mais de maxSize valores
-    for (int i = 1; i < maxSize; i++)
+    if (Firebase.getJSON(fbdo, path))
     {
-      tokens[i - 1] = tokens[i];
+      FirebaseJson &json = fbdo.jsonObject();
+      FirebaseJsonData jsonData;
+
+      if (json.get(jsonData, "dht_interval") && jsonData.type == "int")
+      {
+        config.dht_interval = jsonData.intValue;
+        saveConfig(config);
+      }
+
+      if (json.get(jsonData, "mq2_interval") && jsonData.type == "int")
+      {
+        config.mq2_interval = jsonData.intValue;
+        saveConfig(config);
+      }
+
+      if (json.get(jsonData, "presence_interval") && jsonData.type == "boolean")
+      {
+        config.presence_interval = jsonData.boolValue;
+        saveConfig(config);
+      }
+
+      if (json.get(jsonData, "ldr_interval") && jsonData.type == "int")
+      {
+        config.ldr_interval = jsonData.intValue;
+        saveConfig(config);
+      }
+
+      if (json.get(jsonData, "noise_interval") && jsonData.type == "int")
+      {
+        config.noise_interval = jsonData.intValue;
+        saveConfig(config);
+      }
+
+      if (json.get(jsonData, "sound_alert") && jsonData.type == "boolean")
+      {
+        config.sound_alert = jsonData.boolValue;
+        saveConfig(config);
+      }
     }
-    tokenCount = maxSize - 1;
-  }
-  tokens[tokenCount++] = String(NewValue);
+    else
+    {
+      FirebaseJson json;
 
-  // Reconstrua a string com os valores atualizados
-  String result = tokens[0];
-  for (int i = 1; i < tokenCount; i++)
-  {
-    result += "," + tokens[i];
-  }
+      json.set("dht_interval", config.dht_interval);
+      json.set("mq2_interval", config.mq2_interval);
+      json.set("presence_interval", config.presence_interval);
+      json.set("ldr_interval", config.ldr_interval);
+      json.set("noise_interval", config.noise_interval);
+      json.set("sound_alert", config.sound_alert);
 
-  return result;
+      Firebase.setJSON(fbdo, path, json);
+    }
+  }
 }
 
-String processDates(String data, String newDate)
+void processFloats(String data, float NewValue, String path)
 {
-  // Dividir a string em valores individuais
-  int maxSize = 10;
-  String tokens[maxSize];
-  int tokenCount = 0;
-
-  int startIndex = 0;
-  int commaIndex = data.indexOf(',');
-
-  // Extraí todos os valores da string
-  while (commaIndex != -1)
+  if (Firebase.getString(fbdo, path))
   {
-    tokens[tokenCount++] = data.substring(startIndex, commaIndex);
-    startIndex = commaIndex + 1;
-    commaIndex = data.indexOf(',', startIndex);
-  }
-  // Adiciona o último valor, que não tem uma vírgula após ele
-  tokens[tokenCount++] = data.substring(startIndex);
+    data = fbdo.stringData();
+    int maxSize = 10;
+    String tokens[maxSize];
+    int tokenCount = 0;
 
-  // Adiciona a nova data à lista
-  if (tokenCount >= maxSize)
-  {
-    // Remove a data mais antiga se houver mais de maxSize valores
-    for (int i = 1; i < maxSize; i++)
+    int startIndex = 0;
+    int commaIndex = data.indexOf(',');
+    while (commaIndex != -1)
     {
-      tokens[i - 1] = tokens[i];
+      tokens[tokenCount++] = data.substring(startIndex, commaIndex);
+      startIndex = commaIndex + 1;
+      commaIndex = data.indexOf(',', startIndex);
     }
-    tokenCount = maxSize - 1;
-  }
-  tokens[tokenCount++] = newDate;
+    tokens[tokenCount++] = data.substring(startIndex);
 
-  // Reconstrua a string com as datas atualizadas
-  String result = tokens[0];
-  for (int i = 1; i < tokenCount; i++)
+    if (tokenCount >= maxSize)
+    {
+      for (int i = 1; i < maxSize; i++)
+      {
+        tokens[i - 1] = tokens[i];
+      }
+      tokenCount = maxSize - 1;
+    }
+    tokens[tokenCount++] = String(NewValue);
+
+    String result = tokens[0];
+    for (int i = 1; i < tokenCount; i++)
+    {
+      result += "," + tokens[i];
+    }
+
+    Firebase.setString(fbdo, path, result);
+  }
+  else
   {
-    result += "," + tokens[i];
+    Firebase.setString(fbdo, path, "");
   }
-
-  return result;
 }
 
-String processBools(String data, bool NewValue)
+void processBools(String data, bool NewValue, String path)
 {
-  int maxSize = 10;
-  String tokens[maxSize];
-  int tokenCount = 0;
-
-  int startIndex = 0;
-  int commaIndex = data.indexOf(',');
-
-  while (commaIndex != -1)
+  if (Firebase.getString(fbdo, path))
   {
-    tokens[tokenCount++] = data.substring(startIndex, commaIndex);
-    startIndex = commaIndex + 1;
-    commaIndex = data.indexOf(',', startIndex);
-  }
+    data = fbdo.stringData();
+    int maxSize = 10;
+    String tokens[maxSize];
+    int tokenCount = 0;
 
-  tokens[tokenCount++] = data.substring(startIndex);
+    int startIndex = 0;
+    int commaIndex = data.indexOf(',');
 
-  if (tokenCount >= maxSize)
-  {
-    for (int i = 1; i < maxSize; i++)
+    while (commaIndex != -1)
     {
-      tokens[i - 1] = tokens[i];
+      tokens[tokenCount++] = data.substring(startIndex, commaIndex);
+      startIndex = commaIndex + 1;
+      commaIndex = data.indexOf(',', startIndex);
     }
-    tokenCount = maxSize - 1;
-  }
-  tokens[tokenCount++] = NewValue ? "true" : "false";
 
-  String result = tokens[0];
-  for (int i = 1; i < tokenCount; i++)
+    tokens[tokenCount++] = data.substring(startIndex);
+
+    if (tokenCount >= maxSize)
+    {
+      for (int i = 1; i < maxSize; i++)
+      {
+        tokens[i - 1] = tokens[i];
+      }
+      tokenCount = maxSize - 1;
+    }
+    tokens[tokenCount++] = NewValue ? "true" : "false";
+
+    String result = tokens[0];
+    for (int i = 1; i < tokenCount; i++)
+    {
+      result += "," + tokens[i];
+    }
+
+    Firebase.setString(fbdo, path, result);
+  }
+  else
   {
-    result += "," + tokens[i];
+    Firebase.setString(fbdo, path, "");
   }
-
-  return result;
 }
 
 String getCurrentTimestamp(int timezoneOffset)
@@ -158,100 +192,157 @@ void connectToFirebase(Config &config)
   Firebase.setDoubleDigits(5);
 }
 
+void sendHistory(String path, String name, float data, bool status)
+{
+
+  FirebaseJson json;
+  json.set("value", data);
+  json.set("updated_at", getCurrentTimestamp(-3));
+  json.set("status", status);
+  Firebase.push(fbdo, path + "/" + name, json);
+}
+
+void sendhtValue(String path, Config &config, String path_history)
+{
+  int timeInterval = config.dht_interval ? config.dht_interval : 1800;
+  static unsigned long sendDataPrevMillis = 0;
+  if (millis() - sendDataPrevMillis > timeInterval)
+  {
+    sendDataPrevMillis = millis();
+    float temperatureValue = readTemperature();
+    float humidityValue = readHumidity();
+
+    FirebaseJson json;
+    json.set("name", "Temperatura");
+    json.set("status", status.temperature);
+    json.set("value", temperatureValue);
+    json.set("updated_at", getCurrentTimestamp(-3));
+    Firebase.set(fbdo, path + "sensors/temperature", json);
+
+    json.set("name", "Umidade");
+    json.set("status", status.humidity);
+    json.set("value", humidityValue);
+    json.set("updated_at", getCurrentTimestamp(-3));
+    Firebase.set(fbdo, path + "sensors/humidity", json);
+
+    processFloats("", temperatureValue, path + "temperature_history");
+    processFloats("", humidityValue, path + "humidity_history");
+
+    sendHistory("/history/" + path_history, "temperature", temperatureValue, status.temperature);
+    sendHistory("/history/" + path_history, "humidity", temperatureValue, status.humidity);
+  }
+}
+
+void sendMQ2Value(String path, Config &config, String path_history)
+{
+  int timeInterval = config.mq2_interval ? config.mq2_interval : 1800;
+  static unsigned long sendDataPrevMillis = 0;
+  if (millis() - sendDataPrevMillis > 1500)
+  {
+    sendDataPrevMillis = millis();
+    float mq2Value = readMQ2();
+
+    FirebaseJson json;
+    json.set("name", "Gases");
+    json.set("status", status.mq2);
+    json.set("value", mq2Value);
+    json.set("updated_at", getCurrentTimestamp(-3));
+    Firebase.set(fbdo, path + "mq2", json);
+
+    processFloats("", mq2Value, path + "mq2_history");
+    sendHistory("/history/" + path_history, "sensors/mq2", mq2Value, status.mq2);
+  }
+}
+
+void sendNoiseValue(String path, Config &config, String path_history)
+{
+  int timeInterval = config.noise_interval ? config.noise_interval : 1800;
+  static unsigned long sendDataPrevMillis = 0;
+  if (millis() - sendDataPrevMillis > 1600)
+  {
+    sendDataPrevMillis = millis();
+    float noiseValue = random(500, 1500) / 10.0;
+    FirebaseJson json;
+    json.set("name", "Ruído");
+    json.set("status", true);
+    json.set("value", noiseValue);
+    json.set("updated_at", getCurrentTimestamp(-3));
+    Firebase.set(fbdo, path + "sensors/noise", json);
+    processFloats("", noiseValue, path + "noise_history");
+
+    sendHistory("/history/" + path_history, "noise", noiseValue, true);
+  }
+}
+
+void sendPresenceValue(String path, Config &config, String path_history)
+{
+  int timeInterval = config.presence_interval ? config.presence_interval : 1800;
+  static unsigned long sendDataPrevMillis = 0;
+  if (millis() - sendDataPrevMillis > 1700)
+  {
+    sendDataPrevMillis = millis();
+    bool presenceValue = readPresence();
+    FirebaseJson json;
+    json.set("name", "Presença");
+    json.set("status", true);
+    json.set("value", presenceValue);
+    json.set("updated_at", getCurrentTimestamp(-3));
+    Firebase.set(fbdo, path + "sensors/presence", json);
+
+    processBools("", presenceValue, path + "presence_history");
+
+    sendHistory("/history/" + path_history, "presence", presenceValue, true);
+  }
+}
+
+void sendLDRValue(String path, Config &config, String path_history)
+{
+  int timeInterval = config.ldr_interval ? config.ldr_interval : 1800;
+  static unsigned long sendDataPrevMillis = 0;
+
+  if (millis() - sendDataPrevMillis > timeInterval)
+  {
+    sendDataPrevMillis = millis();
+    float ldrValue = readLDR();
+    FirebaseJson json;
+    json.set("name", "Luminosidade");
+    json.set("status", status.ldr);
+    json.set("value", ldrValue);
+    Firebase.set(fbdo, path + "sensors/ldr", json);
+
+    processFloats("", ldrValue, path + "ldr_history");
+    sendHistory("/history/" + path_history, "ldr", ldrValue, status.ldr);
+  }
+}
+
+void setWifiValue(String path, Config &config)
+{
+  String wifiSSID = WiFi.SSID();
+  String ipAddress = WiFi.localIP().toString();
+  FirebaseJson json;
+  json.set("name", "Conexão WiFi");
+  json.set("value", wifiSSID);
+  json.set("status", WiFi.status() == WL_CONNECTED);
+  json.set("updated_at", getCurrentTimestamp(-3));
+  json.set("extra", ipAddress);
+  Firebase.set(fbdo, path + "sensors/wifi", json);
+}
+
 void sendData(Config &config)
 {
   String configName = config.name;
-  String basePath = "/enviroments/" + configName + "/current/";
-  String historyPath = "/enviroments/" + configName + "/history/";
+  String basePath = "/enviroments/" + configName + "/";
 
-  // Ler os valores dos sensores
-  float temperatureValue = readTemperature();  // Leitura da temperatura do DHT11
-  float humidityValue = readHumidity();        // Leitura da temperatura do DHT11
-  float mq2Value = readMQ2();                  // Leitura do MQ2
-  float presenceValue = readPresence();        // Leitura do MQ2
-  float noiseValue = random(500, 1500) / 10.0; // Exemplo: valores entre 50.0 e 150.0
-  float ldrValue = readLDR();
-  String ipAddress = WiFi.localIP().toString();
-  String wifiSSID = WiFi.SSID();
-  String lastUpdate = getCurrentTimestamp(-3);
-
-  Firebase.setFloat(fbdo, basePath + "temperature", temperatureValue);
-  Firebase.setFloat(fbdo, basePath + "humidity", humidityValue);
-  Firebase.setFloat(fbdo, basePath + "mq2", mq2Value);
-  Firebase.setBool(fbdo, basePath + "presence", presenceValue);
-  Firebase.setFloat(fbdo, basePath + "ldr", ldrValue);
-  Firebase.setFloat(fbdo, basePath + "noise", noiseValue);
-  Firebase.setString(fbdo, basePath + "ip", ipAddress);
-  Firebase.setString(fbdo, basePath + "wifi", wifiSSID);
-  Firebase.setString(fbdo, basePath + "last_update", lastUpdate);
-
-  String data;
-  if (Firebase.getString(fbdo, basePath + "temperature_history"))
-  {
-    data = fbdo.stringData();
-    Serial.println(data);
-    String processedData = processFloats(data, temperatureValue);
-    Serial.println(processedData);
-    Firebase.setString(fbdo, basePath + "temperature_history", processedData);
-  }
-
-  if (Firebase.getString(fbdo, basePath + "humidity_history"))
-  {
-    data = fbdo.stringData();
-    Serial.println(data);
-    String processedData = processFloats(data, humidityValue);
-    Serial.println(processedData);
-    Firebase.setString(fbdo, basePath + "humidity_history", processedData);
-  }
-
-  if (Firebase.getString(fbdo, basePath + "mq2_history"))
-  {
-    data = fbdo.stringData();
-    Serial.println(data);
-    String processedData = processFloats(data, mq2Value);
-    Serial.println(processedData);
-    Firebase.setString(fbdo, basePath + "mq2_history", processedData);
-  }
-
-  if (Firebase.getString(fbdo, basePath + "presence_history"))
-  {
-    data = fbdo.stringData();
-    Serial.println(data);
-    String processedData = processFloats(data, presenceValue);
-    Serial.println(processedData);
-    Firebase.setString(fbdo, basePath + "presence_history", processedData);
-  }
-
-  if (Firebase.getString(fbdo, basePath + "ldr_history"))
-  {
-    data = fbdo.stringData();
-    Serial.println(data);
-    String processedData = processFloats(data, ldrValue);
-    Serial.println(processedData);
-    Firebase.setString(fbdo, basePath + "ldr_history", processedData);
-  }
-
-  if (Firebase.getString(fbdo, basePath + "updated_at_history"))
-  {
-    data = fbdo.stringData();
-    String processedData = processDates(data, lastUpdate);
-    Serial.println(processedData);
-    Firebase.setString(fbdo, basePath + "updated_at_history", processedData);
-  }
-  // Construir o JSON com os valores atuais e timestamp
-  // FirebaseJson json;
-  //  json.set("temperature", temperatureValue);
-  // json.set("humidity", humidityValue);
-  //  json.set("mq2", mq2Value);
-  //  json.set("noise", noiseValue);
-  //  json.set("presence", presenceValue);
-  //  json.set("ldr", ldrValue);
-  //  json.set("ip", ipAddress);
-  //  json.set("wifi", wifiSSID);
-  //  json.set("last_update", lastUpdate);
-
-  // Adicionar o novo registro ao histórico
-  // Serial.printf("Append to history... %s\n", Firebase.push(fbdo, historyPath, json) ? "ok" : fbdo.errorReason().c_str());
-
-  Serial.println();
+  sendhtValue(basePath, config, configName);
+  Firebase.setString(fbdo, basePath + "updated_at", getCurrentTimestamp(-3));
+  sendMQ2Value(basePath, config, configName);
+  Firebase.setString(fbdo, basePath + "updated_at", getCurrentTimestamp(-3));
+  sendNoiseValue(basePath, config, configName);
+  Firebase.setString(fbdo, basePath + "updated_at", getCurrentTimestamp(-3));
+  sendPresenceValue(basePath, config, configName);
+  Firebase.setString(fbdo, basePath + "updated_at", getCurrentTimestamp(-3));
+  sendLDRValue(basePath, config, configName);
+  Firebase.setString(fbdo, basePath + "updated_at", getCurrentTimestamp(-3));
+  setWifiValue(basePath, config);
+  Firebase.setString(fbdo, basePath + "updated_at", getCurrentTimestamp(-3));
 }
