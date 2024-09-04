@@ -1,0 +1,334 @@
+const char MAIN_page[] PROGMEM = R"=====(
+  <h1>Hello World</h1>
+)=====";
+
+String listSSID()
+{
+  String index = (const __FlashStringHelper *)MAIN_page; // Leia o conteúdo HTML
+  String networks = "";
+  int n = WiFi.scanNetworks();
+
+  if (n > 0)
+  {
+    networks = "<tbody>";
+    for (int i = 0; i < n; ++i)
+    {
+      String ssid = WiFi.SSID(i);
+      networks += "<tr>";
+      networks += "<td>";
+      networks += ssid;
+      networks += "</td>";
+      networks += "<td>";
+      networks += WiFi.RSSI(i);
+      networks += "</td>";
+      networks += "<td>";
+      networks += WiFi.channel(i);
+      networks += "</td>";
+      networks += "<td>";
+      networks += (WiFi.encryptionType(i) == ENC_TYPE_NONE ? "Aberta" : "Fechada");
+      networks += "</td>";
+      networks += "<td style='text-align: right;'><button  type='button' class='button button-";
+      if (WiFi.status() == WL_CONNECTED && WiFi.SSID() == ssid)
+      {
+        networks += "connected' onclick=\"toggleDisconnect(this, '";
+        networks += ssid;
+        networks += "')\">Desconectar";
+      }
+      else
+      {
+        networks += "-to-connected' onclick=\"toggleConnection(this, '";
+        networks += ssid;
+        networks += "')\">Conectar";
+      }
+      networks += "</button></td></tr>";
+    }
+    networks += "</tbody>";
+  }
+
+  Serial.println(config.firebase_api_key);
+  Serial.println(config.name);
+
+  index.replace("<tbody><tr><td colspan=\"5\"> Nenhuma rede disponível</td></tr></tbody>", networks);
+
+  index.replace("<input class='text-field' type='text' name='name' maxlength='32' placeholder='Nome do dispositivo'>", "<input class='text-field' type='text' name='name' length=32 placeholder='Name' value='" + String(config.name) + "'>");
+  index.replace("<input class='text-field' type='text' name='firebase_api_key' maxlength='64' placeholder='Firebase API KEY'>", "<input class='text-field' type='text' name='firebase_api_key' maxlength='64' placeholder='Firebase API KEY' value='" + String(config.firebase_api_key) + "'>");
+  index.replace("<input class='text-field' type='text' name='firebase_data_base_url' maxlength='128' placeholder='Firebase Base URL'>", "<input class='text-field' type='text' name='firebase_data_base_url' maxlength='128' placeholder='Firebase Base URL' value='" + String(config.firebase_data_base_url) + "'>");
+  index.replace("<input class='text-field' type='text' name='firebase_email' maxlength='64' placeholder='Firebase Email'>", "<input class='text-field' type='text' name='firebase_email' maxlength='64' placeholder='Firebase email' value='" + String(config.firebase_email) + "'>");
+  index.replace("<input class='text-field' type='password' name='firebase_password' maxlength='64' placeholder='Firebase Senha'>", "<input class='text-field' type='password' name='firebase_password' maxlength='64' placeholder='firebase Password' value='" + String(config.firebase_password) + "'>");
+  return index;
+}
+
+void handleRoot()
+{
+  String index = listSSID();
+
+  server.send(200, "text/html", index);
+}
+
+void connectToWiFi(String ssidWifi, String passwordWifi)
+{
+  if (ssidWifi.equals("") || passwordWifi.equals(""))
+  {
+    return;
+  }
+
+  int count = 0;
+  WiFi.begin(ssidWifi.c_str(), passwordWifi.c_str());
+
+  while (count < 15)
+  {
+    delay(500);
+    Serial.print(".");
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      strncpy(config.ssid, ssidWifi.c_str(), sizeof(config.ssid) - 1);
+      strncpy(config.password, passwordWifi.c_str(), sizeof(config.password) - 1);
+      saveConfig(config);
+
+      Serial.println("");
+      Serial.println("");
+
+      // Se a conexão ocorrer com sucesso, mostre o endereço IP no monitor serial
+      String responsePage = (const __FlashStringHelper *)MAIN_page; // Leia o conteúdo HTML
+      responsePage.replace("<br><br>", "<p id='status'>Conectado!</p>");
+      server.send(200, "text/html", responsePage);
+      return;
+    }
+    else if (WiFi.status() == WL_CONNECT_FAILED)
+    {
+      String responsePage = (const __FlashStringHelper *)MAIN_page;
+      responsePage.replace("<br><br>", "<p id='status' style='color:red;'>Falha na conexão.</p>");
+      server.send(200, "text/html", responsePage);
+    }
+    count++;
+  }
+  String responsePage = (const __FlashStringHelper *)MAIN_page;
+  responsePage.replace("<br><br>", "<p id='status' style='color:red;'>Erro.</p>");
+  server.send(200, "text/html", responsePage);
+  return;
+}
+
+void handleFormConnection()
+{
+  // delay(1000);
+  String ssidWifi = server.arg("ssid");
+  String passwordWifi = server.arg("password");
+
+  if (ssidWifi.equals("") && passwordWifi.equals(""))
+  {
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      handleFormDisconect();
+    }
+  }
+
+  server.on("/", HTTP_POST, handleRoot);
+
+  if (!ssidWifi.equals("") && !passwordWifi.equals(""))
+  {
+    connectToWiFi(ssidWifi, passwordWifi);
+  }
+
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    saveConfig(config);
+  }
+}
+
+void handleFormDisconect()
+{
+  strcpy(config.password, "");
+  strcpy(config.ssid, "");
+  saveConfig(config);
+  Serial.println("Desconectado!");
+  printConfig(config);
+  WiFi.disconnect();
+
+  enterConfigMode(config);
+  IPAddress ip = WiFi.softAPIP();
+  server.sendHeader("Location", "http://" + String(ip[0]) + "." + String(ip[1]) + "." + String(ip[2]) + "." + String(ip[3]) + "/", true);
+  server.send(302, "text/plain", "Redirecionando...");
+}
+
+void handleFormCredentials()
+{
+  String name = server.arg("name");
+  String firebase_api_key = server.arg("firebase_api_key");
+  String firebase_data_base_url = server.arg("firebase_data_base_url");
+  String firebase_email = server.arg("firebase_email");
+  String firebase_password = server.arg("firebase_password");
+
+  strncpy(config.name, name.c_str(), sizeof(config.name) - 1);
+  strncpy(config.firebase_api_key, firebase_api_key.c_str(), sizeof(config.firebase_api_key) - 1);
+  strncpy(config.firebase_data_base_url, firebase_data_base_url.c_str(), sizeof(config.firebase_data_base_url) - 1);
+  strncpy(config.firebase_email, firebase_email.c_str(), sizeof(config.firebase_email) - 1);
+  strncpy(config.firebase_password, firebase_password.c_str(), sizeof(config.firebase_password) - 1);
+
+  saveConfig(config);
+  handleRoot();
+}
+
+void setupAp()
+{
+  WiFi.softAP(ssid, password);
+
+  Serial.println(WiFi.softAPIP());
+  server.on("/", handleRoot);
+  server.on("/action_new_connection", handleFormConnection);
+  server.on("/action_form_credentials", handleFormCredentials);
+
+  server.begin();
+  Serial.println("Servidor HTTP iniciado");
+  Serial.print("WiFi: ");
+  Serial.println(ssid);
+
+  Serial.println("Senha: 123456789");
+  Serial.print("Acesse ");
+
+  Serial.print(WiFi.softAPIP());
+
+  Serial.println(" para configurar o ESP8266");
+  server.handleClient(); // Trata requisições de clientes
+}
+
+void enterConfigMode(Config &config)
+{
+  Serial.println("Entrando no modo de configuração...");
+  config.configMode = true;
+  // delay(1000);
+  setupAp();
+}
+
+void exitConfigMode(Config &config)
+{
+  Serial.println("Saido do mode de configuração...");
+  config.configMode = false;
+  saveConfig(config);
+}
+
+void handleButtonConfig(Config &config)
+{
+  static unsigned long buttonPressTime = 0;
+  static bool buttonWasPressed = false;
+
+  if (digitalRead(BUTTON_PIN) == LOW)
+  {
+    if (!buttonWasPressed)
+    {
+      buttonPressTime = millis();
+      buttonWasPressed = true;
+    }
+    else if (millis() - buttonPressTime >= 5000)
+    {
+      if (config.configMode == false)
+      {
+        enterConfigMode(config);
+      }
+      else
+      {
+        exitConfigMode(config);
+      }
+      buttonPressTime = millis();
+    }
+  }
+  else
+  {
+    if (buttonWasPressed)
+    {
+      buttonPressTime = 0;
+      buttonWasPressed = false;
+    }
+  }
+
+  if (config.configMode)
+  {
+    digitalWrite(LED_PIN, millis() % 500 < 250 ? LOW : HIGH);
+  }
+  else
+  {
+    digitalWrite(LED_PIN, HIGH);
+  }
+}
+
+void loadConfig(Config &config)
+{
+  int address = EEPROM_START_ADDRESS;
+  Serial.println("Carregando configurações...");
+
+  EEPROM.get(address, config.ssid);
+  address += sizeof(config.ssid);
+
+  EEPROM.get(address, config.password);
+  address += sizeof(config.password);
+
+  EEPROM.get(address, config.configMode);
+  address += sizeof(config.configMode);
+
+  EEPROM.get(address, config.name);
+  address += sizeof(config.name);
+
+  EEPROM.get(address, config.firebase_api_key);
+  address += sizeof(config.firebase_api_key);
+
+  EEPROM.get(address, config.firebase_data_base_url);
+  address += sizeof(config.firebase_data_base_url);
+
+  EEPROM.get(address, config.firebase_email);
+  address += sizeof(config.firebase_email);
+
+  EEPROM.get(address, config.firebase_password);
+  address += sizeof(config.firebase_password);
+  delay(500);
+  Serial.println("Configurações carregadas.");
+}
+
+/*Serial.println("-----------------------------------------------------");
+  Serial.println("Temperature Sensor: ");
+  Serial.print("Alerta sonoro: ");
+  Serial.println(config.temperature_alert ? "Yes" : "No");
+  Serial.print("Temperatura Min: ");
+  Serial.println(config.temperature_min);
+  Serial.print("Temperatura Max: ");
+  Serial.println(config.temperature_max);
+  Serial.println("-----------------------------------------------------");
+
+  Serial.println("Humidade Sensor: ");
+  Serial.print("Alerta sonoro: ");
+  Serial.println(config.humidity_alert ? "Yes" : "No");
+  Serial.print("Humidade Min: ");
+  Serial.println(config.humidity_min);
+  Serial.print("Humidade Max: ");
+  Serial.println(config.humidity_max);
+  Serial.println("-----------------------------------------------------");
+
+  Serial.println("MQ2 Sensor: ");
+  Serial.print("Alerta sonoro: ");
+  Serial.println(config.mq2_alert ? "Yes" : "No");
+  Serial.print("MQ2 Min: ");
+  Serial.println(config.mq2_min);
+  Serial.print("MQ2 Max: ");
+  Serial.println(config.mq2_max);
+  Serial.println("-----------------------------------------------------");
+
+  Serial.println("Noise Sensor: ");
+  Serial.print("Alerta sonoro: ");
+  Serial.println(config.noise_alert ? "Yes" : "No");
+  Serial.print("Noise Min: ");
+  Serial.println(config.noise_min);
+  Serial.print("Noise Max: ");
+  Serial.println(config.noise_max);
+  Serial.println("-----------------------------------------------------");
+
+  Serial.println("LDR Sensor: ");
+  Serial.print("Alerta sonoro: ");
+  Serial.println(config.ldr_alert ? "Yes" : "No");
+  Serial.print("LDR Min: ");
+  Serial.println(config.ldr_min);
+  Serial.print("LDR Max: ");
+  Serial.println(config.ldr_max);
+  Serial.println("-----------------------------------------------------");
+
+  Serial.println("Presence Sensor: ");
+  Serial.print("Alerta sonoro: ");
+  Serial.println(config.presence_alert ? "Yes" : "No");
+  Serial.println("-----------------------------------------------------");*/

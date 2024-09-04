@@ -1,4 +1,0 @@
-#ifndef SENSORS_MANAGER_H
-#define SENSORS_MANAGER_H
-
-#endif

@@ -1,0 +1,4 @@
+#ifndef FIREBASE_MANAGER_H
+#define FIREBASE_MANAGER_H
+
+#endif

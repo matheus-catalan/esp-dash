@@ -52,15 +52,7 @@ void printConfig(const Config &config)
   {
     Serial.println("");
   }
-  // Serial.print("IP: ");
-  // if (WiFi.status() == WL_CONNECTED)
-  // {
-  //   Serial.println(WiFi.localIP());
-  // }
-  // else
-  // {
-  //   Serial.println("Não conectado");
-  // }
+
   Serial.print("Config Mode: ");
   Serial.println(config.configMode ? "Yes" : "No");
   Serial.print("Name: ");
@@ -82,32 +74,76 @@ void printConfig(const Config &config)
     Serial.println("");
   }
   Serial.print("Firebase DB URL: ");
-  if (config.firebase_data_base_url[0] != '\0')
-  {
+  if (config.firebase_data_base_url[0] != '\0') {
     Serial.println(config.firebase_data_base_url);
   }
-  else
-  {
+  else{
     Serial.println("");
   }
   Serial.print("Firebase Email: ");
-  if (config.firebase_email[0] != '\0')
-  {
+  if (config.firebase_email[0] != '\0') {
     Serial.println(config.firebase_email);
-  }
-  else
-  {
+  } else {
     Serial.println("");
   }
   Serial.print("Firebase Password: ");
-  if (config.firebase_password[0] != '\0')
-  {
+  if (config.firebase_password[0] != '\0') {
     Serial.println(config.firebase_password);
   }
   else
   {
     Serial.println("");
   }
+
+  Serial.println("-----------------------------------------------------");
+  Serial.println("Temperature Sensor: ");
+  Serial.print("Alerta sonoro: ");
+  Serial.println(config.temperature_alert ? "Yes" : "No");
+  Serial.print("Temperatura Min: ");
+  Serial.println(config.temperature_min);
+  Serial.print("Temperatura Max: ");
+  Serial.println(config.temperature_max);
+  Serial.println("-----------------------------------------------------");
+
+  Serial.println("Humidade Sensor: ");
+  Serial.print("Alerta sonoro: ");
+  Serial.println(config.humidity_alert ? "Yes" : "No");
+  Serial.print("Humidade Min: ");
+  Serial.println(config.humidity_min);
+  Serial.print("Humidade Max: ");
+  Serial.println(config.humidity_max);
+  Serial.println("-----------------------------------------------------");
+
+  Serial.println("MQ2 Sensor: ");
+  Serial.print("Alerta sonoro: ");
+  Serial.println(config.mq2_alert ? "Yes" : "No");
+  Serial.print("MQ2 Min: ");
+  Serial.println(config.mq2_min);
+  Serial.print("MQ2 Max: ");
+  Serial.println(config.mq2_max);
+  Serial.println("-----------------------------------------------------");
+
+  Serial.println("Noise Sensor: ");
+  Serial.print("Alerta sonoro: ");
+  Serial.println(config.noise_alert ? "Yes" : "No");
+  Serial.print("Noise Min: ");
+  Serial.println(config.noise_min);
+  Serial.print("Noise Max: ");
+  Serial.println(config.noise_max);
+  Serial.println("-----------------------------------------------------");
+
+  Serial.println("LDR Sensor: ");
+  Serial.print("Alerta sonoro: ");
+  Serial.println(config.ldr_alert ? "Yes" : "No");
+  Serial.print("LDR Min: ");
+  Serial.println(config.ldr_min);
+  Serial.print("LDR Max: ");
+  Serial.println(config.ldr_max);
+  Serial.println("-----------------------------------------------------");
+
+  Serial.println("Presence Sensor: ");
+  Serial.print("Alerta sonoro: ");
+  Serial.println(config.presence_alert ? "Yes" : "No");
   Serial.println("-----------------------------------------------------");
 }
 
