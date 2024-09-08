@@ -9,6 +9,7 @@ IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 void setupAp() { 
+  Serial.println("=========================== PONTO DE ACESSO ===========================");
   WiFi.softAP("ESP Access Point", "12345");
   WiFi.softAPConfig(local_ip, gateway, subnet);
 
@@ -18,6 +19,7 @@ void setupAp() {
   Serial.println("Acesse " + String("http://") + WiFi.softAPIP() + " para configurar o dispositivo.");
 
   delay(1000);
+  Serial.println("=========================== PONTO DE ACESSO ===========================");
 }
 
 bool connectToWiFi(String ssidWifi, String passwordWifi) {

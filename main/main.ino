@@ -1,4 +1,3 @@
-#include "FirebaseManager.h"
 #include "HTTPServer.h"
 #include "WifiManager.h"
 #include "ConfigManager.h"
@@ -44,7 +43,7 @@ void setup() {
   drawProgressBar(20, "Iniciando EEPROM...");
   EEPROM.begin(512);
   drawProgressBar(30, "Carregando configurações...");
-
+  saveConfig(config);
   drawProgressBar(40, "Carregando configurações...");
   loadConfig(config);
   drawProgressBar(50, "Conectando Wifi...");
@@ -54,20 +53,30 @@ void setup() {
   setupNetwork();
   drawProgressBar(70, "Iniciando http server...");
   setupHttpServer();
-  drawProgressBar(80, "Conectando ao Firebase");
-  apiManager.pingToServer(config);
-  drawProgressBar(90, "Carregando configurações...");
-  //checkForConfigUpdates(config);
+  drawProgressBar(80, "Conectando ao Servidor...");
+  apiManager.connectToServer(config);
+  drawProgressBar(90, "Conectando ao MQTT...");
+  apiManager.connectToMqtt(config);
   drawProgressBar(100, "Finalizando...");
   delay(1000);
   printConfig(config);
-  //drawHomeScreen(config.name, getWifiStatus(), getWifiSSID(), getWifiIP(), getFirebaseConnectionStatus(), getPasswd());
+  drawHomeScreen(config.name, getWifiStatus(), getWifiSSID(), getWifiIP(), getServerStatus(), getPasswd());
 }
+
+unsigned long previous = 0;
 
 void loop() {
   //handleClient();
-  //drawHomeScreen(config.name, getWifiStatus(), getWifiSSID(), getWifiIP(), getFirebaseConnectionStatus(), getPasswd());
-  //checkForConfigUpdates(config);
+  apiManager.handleMqttServer();
+  drawHomeScreen(config.name, getWifiStatus(), getWifiSSID(), getWifiIP(), getServerStatus(), getPasswd());
   //checkSensorStatus(config);
-  //apiManager.sendData(config);
+  unsigned long currentMillis = millis();
+  
+  if (currentMillis - previous >= 1000) {
+    Serial.println("Sending data...");
+    apiManager.sendData(config);
+    //apiManager.pingToServer(config);
+    previous = currentMillis;
+  }
+  
 }

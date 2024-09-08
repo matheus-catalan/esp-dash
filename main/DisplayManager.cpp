@@ -144,7 +144,7 @@ void drawHomeScreen(String name, String wifi, String ssid, String ip, String db,
         display.drawString(1, y, "Passwd - " + passwd);
         y += 11; 
     } else {
-      display.drawString(1, y, "DB - " + db);
+      display.drawString(1, y, "Server - " + db);
     }
 
     display.display();

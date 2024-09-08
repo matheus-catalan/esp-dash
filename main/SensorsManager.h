@@ -6,6 +6,7 @@
 
 #if defined(ESP8266)
 #define DHTPIN D1
+#define VOLTAGE_PIN A1
 #define MQ2PIN A0
 #define LDR_PIN D2
 #define PRESENCE_PIN D6
@@ -21,9 +22,11 @@
 #define NOISE_PIN 32
 #define BUZZER_PIN 25
 #define LED_PIN 33
+#define VOLTAGE_PIN 36
 #define MQ2BOARD "ESP-32"
 #define MQ2ADCBITRESOLUTION 12
 #define MQ2RATIOCLEANAIR 9.83
+
 #endif
 
 #define DHTTYPE DHT11
@@ -45,6 +48,8 @@ struct sensorsStatus
   bool mq2 = true;
   bool presence = true;
   bool noise = true;
+  bool wifi = true;
+  bool server = true;
 };
 extern sensorsStatus status;
 
@@ -53,10 +58,13 @@ float readLDR();
 float readTemperature();
 float readHumidity();
 float readMQ2();
+float readMemoryUsage();
 bool readPresence();
 float readNoise();
-uint32_t readMemoryUsage();
+float readCpuUsage();
+float readVoltage();
 void checkTemperature(Config &config);
 void checkSensorStatus(Config &config);
+String getServerStatus();
 
 #endif

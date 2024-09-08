@@ -1,5 +1,7 @@
 #include "SensorsManager.h"
 #include <MQUnifiedsensor.h>
+#include "driver/temperature_sensor.h"
+
 DHT dht(DHTPIN, DHTTYPE);
 MQUnifiedsensor MQ2(MQ2BOARD, MQ2VOLTAGERESOLUTION, MQ2ADCBITRESOLUTION, MQ2PIN, MQ2TYPE);
 sensorsStatus status;
@@ -10,8 +12,7 @@ bool buzzerState = false;
 bool ledState = false;
 bool alertLight = false;
 
-void initSensors()
-{
+void initSensors() {
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, HIGH);
@@ -33,27 +34,22 @@ void initSensors()
   MQ2.setB(-2.68);
   MQ2.init();
   float calcR0 = 0;
-  for (int i = 1; i <= 10; i++)
-  {
+  for (int i = 1; i <= 10; i++) {
     MQ2.update();
     calcR0 += MQ2.calibrate(MQ2RATIOCLEANAIR);
   }
+
   MQ2.setR0(calcR0 / 10);
-  if (isinf(calcR0) || isnan(calcR0))
-  {
+  if (isinf(calcR0) || isnan(calcR0)){
     status.mq2 = false;
-  }
-  else
-  {
+  } else {
     status.mq2 = true;
   }
   
   pinMode(PRESENCE_PIN, INPUT);
-
 }
 
-float readLDR()
-{
+float readLDR() {
   float sensorValue = analogRead(LDR_PIN);
   
   float ldrValue = sensorValue * (5.0 / 1023.0);
@@ -61,8 +57,7 @@ float readLDR()
   return ldrValue;
 }
 
-float readTemperature()
-{
+float readTemperature(){
   float temperature = dht.readTemperature();
   
   if (isnan(temperature))
@@ -74,12 +69,10 @@ float readTemperature()
   return temperature;
 }
 
-float readHumidity()
-{
+float readHumidity() {
   float humidity = dht.readHumidity();
   
-  if (isnan(humidity))
-  {
+  if (isnan(humidity)) {
     status.humidity = false;
     return 0.0;
   }
@@ -87,14 +80,12 @@ float readHumidity()
   return humidity;
 }
 
-float readMQ2()
-{
+float readMQ2() {
   MQ2.update();
   MQ2.readSensor();
   float ppm = MQ2.readSensor();
 
-  if (isinf(ppm) || isnan(ppm))
-  {
+  if (isinf(ppm) || isnan(ppm)) {
     status.mq2 = false;
     return 0;
   }
@@ -102,8 +93,7 @@ float readMQ2()
   return ppm;
 }
 
-bool readPresence()
-{
+bool readPresence() {
 
   if (digitalRead(PRESENCE_PIN) == HIGH) {
     return true;
@@ -112,28 +102,58 @@ bool readPresence()
   }
 }
 
-float readNoise()
-{
+float readNoise() {
   float sensorValue = analogRead(NOISE_PIN);
 
   float noiseValue = sensorValue * (5.0 / 1023.0);
   status.noise = true;
   return noiseValue;
-  //return 0.0;
 }
 
-uint32_t readMemoryUsage() {
-  uint32_t freeMemory = ESP.getFreeHeap();
+float readMemoryUsage() {
+  uint32_t totalMemory = ESP.getHeapSize();
+  uint32_t freeMemory = ESP.getFreeHeap(); 
+  uint32_t usedMemory = totalMemory - freeMemory;
 
-  return freeMemory;
+  float usedPercentage = ((float)usedMemory / totalMemory) * 100;
+
+
+  return usedPercentage;
 }
 
-void alert_sound() {
+volatile unsigned long idleCounter = 0;
+unsigned long previousIdleCounter = 0;
+unsigned long previousMillisCPU = 0;
+
+float readCpuUsage() {
+  unsigned long currentMillis = millis();
+  unsigned long currentIdleCounter = idleCounter;
+
+  unsigned long elapsedTime = currentMillis - previousMillisCPU;
+  if (elapsedTime == 0) return 0.0;  // Evita divisão por zero
+
+  unsigned long idleDelta = currentIdleCounter - previousIdleCounter;
+  float idlePercentage = ((float)idleDelta / elapsedTime) * 100.0;
+  float cpuUsage = 100.0 - idlePercentage;  // A CPU usada é o complemento da CPU ociosa
+
+  previousIdleCounter = currentIdleCounter;
+  previousMillisCPU = currentMillis;
+
+  return cpuUsage;
+}
+
+float readVoltage() {
+  int adcValue = analogRead(VOLTAGE_PIN);  
+  float voltage = (adcValue / 4095.0) * 3.3;  // Converte o valor ADC para voltagem (escala de 0 a 3.3V)
+  return voltage;
+}
+
+void sound_alert() {
   buzzerState = !buzzerState;
   digitalWrite(BUZZER_PIN, buzzerState ? HIGH : LOW);
 }
 
-void alert_light() {
+void light_alert() {
   unsigned long currentMillisa = millis();
 
   if (currentMillisa - previousMillisLed >= 1000) {
@@ -144,9 +164,8 @@ void alert_light() {
   }
 }
 
-void alert(String sensor_name, bool sound_alert = false, bool light_alert = false)
-{
-  if (!sound_alert && !light_alert) { return; }
+void alert(String sensor_name, bool alert_sound = false, bool alert_light = false) {
+  if (!alert_sound && !alert_light) { return; }
   
   unsigned long currentMillis = millis();
 
@@ -156,23 +175,22 @@ void alert(String sensor_name, bool sound_alert = false, bool light_alert = fals
     Serial.println("===================================== Alerta! =====================================");
   
     previousMillis = currentMillis;
-    if(sound_alert){
-      alert_sound();
+    if(alert_sound){
+      sound_alert();
     } 
 
   }
-  Serial.println("Light Alert: " + String(light_alert));
-  if (light_alert){
-    alert_light();
+  Serial.println("Light Alert: " + String(alert_light));
+  if (alert_light){
+    light_alert();
   }
 }
 
-void checkTemperature(Config &config)
-{
+void checkTemperature(Config &config) {
   float temperature = readTemperature();
   if (status.temperature) {
     if (temperature < config.temperature_min || temperature > config.temperature_max) {
-      alert("Temperatura", config.temperature_alert, config.temperature_light_alert);
+      alert("Temperatura", config.temperature_alert_sound, config.temperature_alert_light);
     }
   }
 }
@@ -181,7 +199,7 @@ void checkHumidity(Config &config) {
   if (status.humidity) {
     float humidity = readHumidity();
     if (humidity < config.humidity_min || humidity > config.humidity_max) {
-      alert("Umidade", config.humidity_alert, config.humidity_light_alert);
+      alert("Umidade", config.humidity_alert_sound, config.humidity_alert_light);
     }
   }
 }
@@ -190,7 +208,7 @@ void checkLDR(Config &config){
   if (status.ldr) {
     float ldr = readLDR();
     if (ldr < config.ldr_min || ldr > config.ldr_max) {
-      alert("LDR", config.ldr_alert, config.ldr_light_alert);
+      alert("LDR", config.ldr_alert_sound, config.ldr_alert_light);
     }
   }
 }
@@ -199,14 +217,14 @@ void checkMQ2(Config &config) {
   if (status.mq2) {
     float mq2 = readMQ2();
     if (mq2 < config.mq2_min || mq2 > config.mq2_max) {
-      alert("MQ2", config.mq2_alert, config.mq2_light_alert);
+      alert("MQ2", config.mq2_alert_sound, config.mq2_alert_light);
     }
   }
 }
 
 void checkPresence(Config &config) {
   if (readPresence()) {
-    alert("Presença", config.presence_alert, config.presence_light_alert);
+    alert("Presença", config.presence_alert_sound, config.presence_alert_light);
   }
 
 }
@@ -215,7 +233,7 @@ void checkNoise(Config &config) {
   if (status.noise) {
     float noise = readNoise();
     if (noise < config.noise_min || noise > config.noise_max) {
-        alert("Ruído", config.noise_alert, config.noise_light_alert);
+        alert("Ruído", config.noise_alert_sound, config.noise_alert_light);
     }
   }
 }
@@ -229,4 +247,12 @@ void checkSensorStatus(Config &config)
   checkMQ2(config);
   checkPresence(config);
   checkNoise(config);
+}
+
+String getServerStatus(){
+  if(status.server){
+    return "Conectado";
+  } else {
+    return "Desconectado";
+  }
 }

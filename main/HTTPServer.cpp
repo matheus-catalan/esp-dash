@@ -1,11 +1,15 @@
 #include "HTTPServer.h"
 #include "ConfigManager.h"
 #include "WifiManager.h"
+//#include <ESPAsyncWebServer.h>
+//#include <AsyncTCP.h>
 
 #if defined(ESP8266)
   ESP8266WebServer server(80);
 #else
   WebServer server(80);
+  //AsyncWebServer serverAsync(81);
+
 #endif
 
 extern Config config;
@@ -375,16 +379,7 @@ const char MAIN_page[] PROGMEM = R"=====(
             name_input
           </div>
           <div class="field-group">
-            api_key_input
-          </div>
-          <div class="field-group">
             base_url_input
-          </div>
-          <div class="field-group">
-            mail_input
-          </div>
-          <div class="field-group">
-            password_input
           </div>
           <div class="field-group" style="display: flex; align-items: center; justify-content: center;">
             <button class="button"
@@ -442,12 +437,8 @@ String listSSID()
 }
 
 String setConfig(String index) {
- /* index.replace("name_input", "<input class='text-field' type='text' name='name' maxlength='32' placeholder='Name' value='" + String(config.name) + "'>");
-  index.replace("api_key_input", "<input class='text-field' type='text' name='firebase_api_key' maxlength='64' placeholder='Firebase API KEY' value='" + String(config.firebase_api_key) + "'>");
-  index.replace("base_url_input", "<input class='text-field' type='text' name='firebase_data_base_url' maxlength='128' placeholder='Firebase Base URL' value='" + String(config.firebase_data_base_url) + "'>");
-  index.replace("mail_input", "<input class='text-field' type='text' name='firebase_email' maxlength='64' placeholder='Firebase email' value='" + String(config.firebase_email) + "'>");
-  index.replace("password_input", "<input class='text-field' type='password' name='firebase_password' maxlength='64' placeholder='firebase Password' value='" + String(config.firebase_password) + "'>");
-  */
+  index.replace("name_input", "<input class='text-field' type='text' name='name' maxlength='32' placeholder='Name' value='" + String(config.name) + "'>");
+  index.replace("base_url_input", "<input class='text-field' type='text' name='base_url' maxlength='64' placeholder='Server url' value='" + String(config.base_url) + "'>");
   Serial.println(index);
   return index;
 }
@@ -489,32 +480,47 @@ void handleClient() {
 void handleFormCredentials()
 {
   String name = server.arg("name");
-  /*String firebase_api_key = server.arg("firebase_api_key");
-  String firebase_data_base_url = server.arg("firebase_data_base_url");
-  String firebase_email = server.arg("firebase_email");
-  String firebase_password = server.arg("firebase_password");
+  String base_url = server.arg("base_url");
   Serial.println("name: " + name);
-  Serial.println("firebase_api_key: " + firebase_api_key);
-  Serial.println("firebase_data_base_url: " + firebase_data_base_url);
-  Serial.println("firebase_email: " + firebase_email);
-  Serial.println("firebase_password: " + firebase_password);
+  Serial.println("base_url: " + base_url);
   
   strncpy(config.name, name.c_str(), sizeof(config.name) - 1);
-  strncpy(config.firebase_api_key, firebase_api_key.c_str(), sizeof(config.firebase_api_key) - 1);
-  strncpy(config.firebase_data_base_url, firebase_data_base_url.c_str(), sizeof(config.firebase_data_base_url) - 1);
-  strncpy(config.firebase_email, firebase_email.c_str(), sizeof(config.firebase_email) - 1);
-  strncpy(config.firebase_password, firebase_password.c_str(), sizeof(config.firebase_password) - 1);
-  */
+  strncpy(config.base_url, base_url.c_str(), sizeof(config.base_url) - 1);
   saveConfig(config);
 
   handleRoot();
 }
 
+/*void update_config(AsyncWebServerRequest *request) {
+  if (request->hasParam("sensor_key", true) && request->hasParam("min_value", true)) {
+    String sensorKey = request->getParam("sensor_key", true)->value();
+    String minValue = request->getParam("min_value", true)->value();
+    String maxValue = request->getParam("max_value", true)->value();
+    String alertNotification = request->getParam("alert_notification", true)->value();
+    String alertLight = request->getParam("alert_light", true)->value();
+    String alertSound = request->getParam("alert_sound", true)->value();
+
+    Serial.println("Sensor Key: " + sensorKey);
+    Serial.println("Min Value: " + minValue);
+    Serial.println("Max Value: " + maxValue);
+    Serial.println("Alert Notification: " + alertNotification);
+    Serial.println("Alert Light: " + alertLight);
+    Serial.println("Alert Sound: " + alertSound);
+
+    request->send(200, "text/plain", "Configuração salva!");
+  } else {
+    request->send(400, "text/plain", "Parâmetros ausentes!");
+  }
+}*/
+
 void setupHttpServer() {
   server.on("/", HTTP_GET, handleRoot);
   server.on("/action_new_connection", handleFormConnection);
   server.on("/action_form_credentials", handleFormCredentials);
+  //serverAsync.on("/update_config", HTTP_POST, update_config);
+
   server.begin();
+  //serverAsync.begin();
   Serial.println("HTTP server iniciado");
   Serial.println("Accesse http://" + WiFi.localIP().toString() + " para configurar o dispositivo");
 }
