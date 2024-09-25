@@ -9,10 +9,10 @@
 struct Config
 {
   char ssid[32] = "Alma";
-  char password[32] = "36526982";
+  char password[32] = "3652698";
   char name[32] = "caldeira";
-  char base_url[64] = "http://192.168.1.46:8000/"; //http://{ip do computador}:8000/
-  char mqtt_url[14] = "192.168.1.46"; //ip do computador
+  char base_url[64] = "http://192.168.1.4:8000/"; //http://{ip do computador}:8000/
+  char mqtt_url[14] = "192.168.1.4"; //ip do computador
   uint16_t mqtt_port = 1884;
   char mqtt_topic[32] = "/sensors";
   bool configMode = false;
