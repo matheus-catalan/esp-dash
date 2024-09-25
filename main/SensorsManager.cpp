@@ -1,37 +1,44 @@
 #include "SensorsManager.h"
 #include <MQUnifiedsensor.h>
 #include "driver/temperature_sensor.h"
+#include <ResponsiveAnalogRead.h>
+
 
 DHT dht(DHTPIN, DHTTYPE);
 MQUnifiedsensor MQ2(MQ2BOARD, MQ2VOLTAGERESOLUTION, MQ2ADCBITRESOLUTION, MQ2PIN, MQ2TYPE);
 sensorsStatus status;
 unsigned long previousMillis = 0;
 unsigned long previousMillisLed = 0;
-const long interval = 500;
+const long interval = 1000;
 bool buzzerState = false;
 bool ledState = false;
 bool alertLight = false;
 
+ResponsiveAnalogRead analogLDR(0, true);
+ResponsiveAnalogRead analogPresence(0, true);
+ResponsiveAnalogRead analogMq2(0, true);
+ResponsiveAnalogRead analogTemperature(0, true);
+ResponsiveAnalogRead analogHumidity(0, true);
+ResponsiveAnalogRead analogNoise(0, true);
+ResponsiveAnalogRead analogVoltage(0, true);
+
 void initSensors() {
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, HIGH);
-  digitalWrite(LED_PIN, HIGH);
-  delay(100);
-  digitalWrite(BUZZER_PIN, LOW);
-  digitalWrite(LED_PIN, LOW);
-  delay(100);
-  digitalWrite(BUZZER_PIN, HIGH);
-  digitalWrite(LED_PIN, HIGH);
-  delay(100);
-  digitalWrite(BUZZER_PIN, LOW);
-  digitalWrite(LED_PIN, LOW);
-  digitalWrite(LED_PIN, HIGH);
+  pinMode(DHTPIN, INPUT);
+  for(int i = 0; i < 2; i++){
+    digitalWrite(BUZZER_PIN, HIGH);
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    digitalWrite(BUZZER_PIN, LOW);
+    digitalWrite(LED_PIN, LOW);
+    delay(100);
+  }
 
   dht.begin();
   MQ2.setRegressionMethod(1);
-  MQ2.setA(4.8387);
-  MQ2.setB(-2.68);
+  MQ2.setA(658.71);
+  MQ2.setB(-2.168);
   MQ2.init();
   float calcR0 = 0;
   for (int i = 1; i <= 10; i++) {
@@ -47,26 +54,52 @@ void initSensors() {
   }
   
   pinMode(PRESENCE_PIN, INPUT);
+  pinMode(NOISE_PIN, INPUT);
+  pinMode(LDR_PIN, INPUT);
 }
 
 float readLDR() {
-  float sensorValue = analogRead(LDR_PIN);
+  unsigned long other_resistor = 10000;
+  float mult_value = 32017200;
+  float pow_value = 1.5832;
+  bool photocell_on_ground = true;
   
-  float ldrValue = sensorValue * (5.0 / 1023.0);
+  const int numReadings = 10;
+  float total = 0;
+  for (int i = 0; i < numReadings; i++) {
+    float raw_value = analogRead(LDR_PIN);
+    if (raw_value == 4095) raw_value--;
+    
+    float ratio = (4096.0 / raw_value) - 1;
+    unsigned long photocell_resistor = photocell_on_ground ? (other_resistor / ratio) : (other_resistor * ratio);
+    
+    float lux = mult_value / pow(photocell_resistor, pow_value);
+    if (!isnan(lux)) {
+      total += lux;
+    } else {
+      status.ldr = false;
+      return 0;
+    }
+  }
+  
   status.ldr = true;
-  return ldrValue;
+
+  analogLDR.update(total / numReadings);
+
+
+  return analogLDR.getValue();
 }
 
 float readTemperature(){
   float temperature = dht.readTemperature();
-  
   if (isnan(temperature))
   {
     status.temperature = false;
     return 0.0;
   }
   status.temperature = true;
-  return temperature;
+  analogTemperature.update(temperature);
+  return analogTemperature.getValue();
 }
 
 float readHumidity() {
@@ -77,55 +110,54 @@ float readHumidity() {
     return 0.0;
   }
   status.humidity = true;
-  return humidity;
+  analogHumidity.update(humidity);
+  return analogHumidity.getValue();
 }
 
 float readMQ2() {
   MQ2.update();
-  MQ2.readSensor();
   float ppm = MQ2.readSensor();
 
   if (isinf(ppm) || isnan(ppm)) {
     status.mq2 = false;
-    return 0;
+    return 0.0;
   }
   status.mq2 = true;
-  return ppm;
+  analogMq2.update(ppm);
+  return analogMq2.getValue();
 }
 
 bool readPresence() {
+  return digitalRead(PRESENCE_PIN) == HIGH;
+}
 
-  if (digitalRead(PRESENCE_PIN) == HIGH) {
-    return true;
+int readNoise() {
+  float sensorValue = analogRead(NOISE_PIN);
+  int noiseValue = round(sensorValue * (5.0 / 1023.0));
+  if (isnan(noiseValue) || isinf(noiseValue)) {
+    status.noise = false;
+    return 0;
   } else {
-    return false;
+    status.noise = true;
+    return noiseValue;
   }
 }
 
-float readNoise() {
-  float sensorValue = analogRead(NOISE_PIN);
-
-  float noiseValue = sensorValue * (5.0 / 1023.0);
-  status.noise = true;
-  return noiseValue;
-}
-
-float readMemoryUsage() {
+int readMemoryUsage() {
   uint32_t totalMemory = ESP.getHeapSize();
   uint32_t freeMemory = ESP.getFreeHeap(); 
   uint32_t usedMemory = totalMemory - freeMemory;
 
   float usedPercentage = ((float)usedMemory / totalMemory) * 100;
 
-
-  return usedPercentage;
+  return (int)usedPercentage;
 }
 
 volatile unsigned long idleCounter = 0;
 unsigned long previousIdleCounter = 0;
 unsigned long previousMillisCPU = 0;
 
-float readCpuUsage() {
+int readCpuUsage() {
   unsigned long currentMillis = millis();
   unsigned long currentIdleCounter = idleCounter;
 
@@ -139,13 +171,13 @@ float readCpuUsage() {
   previousIdleCounter = currentIdleCounter;
   previousMillisCPU = currentMillis;
 
-  return cpuUsage;
+  return (int)cpuUsage;
 }
 
-float readVoltage() {
+int readVoltage() {
   int adcValue = analogRead(VOLTAGE_PIN);  
   float voltage = (adcValue / 4095.0) * 3.3;  // Converte o valor ADC para voltagem (escala de 0 a 3.3V)
-  return voltage;
+  return (int)voltage;
 }
 
 void sound_alert() {
@@ -159,7 +191,6 @@ void light_alert() {
   if (currentMillisa - previousMillisLed >= 1000) {
     previousMillisLed = currentMillisa;
     ledState = !ledState;
-    Serial.println("Led State: " + String(ledState));
     digitalWrite(LED_PIN, ledState ? HIGH : LOW);
   }
 }
@@ -173,16 +204,19 @@ void alert(String sensor_name, bool alert_sound = false, bool alert_light = fals
     Serial.println("===================================== Alerta! =====================================");
     Serial.println(sensor_name);
     Serial.println("===================================== Alerta! =====================================");
-  
+    
+   
     previousMillis = currentMillis;
     if(alert_sound){
       sound_alert();
     } 
 
   }
-  Serial.println("Light Alert: " + String(alert_light));
+
   if (alert_light){
     light_alert();
+  } else {
+    digitalWrite(LED_PIN, LOW);
   }
 }
 
@@ -190,7 +224,7 @@ void checkTemperature(Config &config) {
   float temperature = readTemperature();
   if (status.temperature) {
     if (temperature < config.temperature_min || temperature > config.temperature_max) {
-      alert("Temperatura", config.temperature_alert_sound, config.temperature_alert_light);
+      alert("Temperatura", config.temperature_alert_sound && config.alert_sound, config.temperature_alert_light && config.alert_light);
     }
   }
 }
@@ -250,7 +284,7 @@ void checkSensorStatus(Config &config)
 }
 
 String getServerStatus(){
-  if(status.server){
+  if(status.server && status.mqtt){
     return "Conectado";
   } else {
     return "Desconectado";

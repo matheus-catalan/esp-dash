@@ -5,18 +5,18 @@
 #include "SensorsManager.h"
 #include "WifiManager.h"
 #include "DisplayManager.h"
-
+#include "ArduinoJson.h"
 struct Config
 {
   char ssid[32] = "Alma";
   char password[32] = "36526982";
-  char name[32] = "producao";
-  char base_url[64] = "http://192.168.1.23:8000/";
-  char mqtt_url[14] = "192.168.1.23";
+  char name[32] = "caldeira";
+  char base_url[64] = "http://192.168.1.46:8000/"; //http://{ip do computador}:8000/
+  char mqtt_url[14] = "192.168.1.46"; //ip do computador
   uint16_t mqtt_port = 1884;
   char mqtt_topic[32] = "/sensors";
   bool configMode = false;
-  int temperature_max = 30;
+  int temperature_max = 30;   
   int temperature_min = 20;
   bool temperature_alert_sound = false;
   bool temperature_alert_light = false;
@@ -43,9 +43,14 @@ struct Config
   bool alert_light = true;
 };
 
+extern Config config;
+
+
 void loadConfig(Config &config);
 void printConfig(const Config &config);
 void saveConfig(const Config &config);
 void loadConfigToFirebase(Config &config);
+void onMessage(char* topic, byte* payload, unsigned int length);
+
 
 #endif

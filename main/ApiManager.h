@@ -1,7 +1,7 @@
 #ifndef APIMANAGER_H
 #define APIMANAGER_H
 
-#include "ConfigManager.h"
+//#include "ConfigManager.h"
 #include "SensorsManager.h"
 class ApiManager {
 public:
@@ -27,17 +27,15 @@ public:
     void sendIpValue(Config &config);
     void sendSensorData();
     void connectToMqtt(Config &config);
-    void handleMqttServer();
+    void handleMqttServer(Config &config);
     void sendDataToMqtt(Config &config, String payload);
-    void updateConfig(char* topic, byte* payload, unsigned int length);
-
+    
 
 
 
 
 private:
     WiFiClient client;
-    static void mqttCallback(char* topic, byte* payload, unsigned int length);
 };
 
 #endif

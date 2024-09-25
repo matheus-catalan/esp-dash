@@ -1,5 +1,4 @@
 #include "ApiManager.h"
-#include <WiFi.h>
 #include <HTTPClient.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -12,67 +11,75 @@ PubSubClient mqttClient(espClient);
 float _temperature = 0.0;
 float _humidity = 0.0;
 float _mq2 = 0.0;
-float _noise = 0.0; 
-float _ldr = 0.0;
-float _memory = 0.0;
-float _cpu = 0.0;
-float _voltage = 0.0;
-float __internal_temperature = 0.0;
+int _noise = 0; 
+int _ldr = 0.0;
+int _memory = 0.0;
+int _cpu = 0.0;
+int _voltage = 0.0;
+int _internal_temperature = 0.0;
 bool _presence = false;
 unsigned long _uptime = 0;
 String _wifiSSID = "";
 String _ipAddress = "";
 
+
 void ApiManager::connectToMqtt(Config &config) {
-  Serial.println("=========================== MQTT SERVER ===========================");
-  Serial.println("Connecting to MQTT Server");
-  Serial.println("URL: " + String(config.mqtt_url));
-  Serial.println("PORT: " + String(config.mqtt_port));
+  Serial.println("=========================== SERVIDOR MQTT ===========================");
+  Serial.print("Conectando ao servidor MQTT");
 
   mqttClient.setServer(config.mqtt_url, config.mqtt_port);
-  client.setCallback(callback);
-
-  while (!mqttClient.connected()) {
-    Serial.println("Attempting MQTT connection...");
-    if (mqttClient.connect("ESP32Client")) {
-      Serial.println("Connected to MQTT Server");
+  mqttClient.setKeepAlive(300000);
+  mqttClient.setCallback(onMessage);
+  
+  int attempts = 0;
+  String clientId = "ESP32Client-" + String(config.name);  // Gerar um clientId único
+  
+  // Loop de tentativa de conexão
+  while (!mqttClient.connected() && attempts < 5) {  // Removido o argumento da função connected()
+    Serial.print(".");
+    
+    // Tentativa de conexão usando o clientId
+    if (mqttClient.connect(clientId.c_str())) {
+      Serial.println("\nConectado ao servidor MQTT");
+      status.mqtt = true;
     } else {
-      Serial.print("Failed to connect, rc=");
+      Serial.print("Falha ao conectar ao servidor MQTT, rc=");
       Serial.print(mqttClient.state());
-      Serial.println(" retrying in 5 seconds...");
-      delay(5000);
+      status.mqtt = false;
+      delay(500);  // Aguarde um pouco antes de tentar novamente
     }
+
+    attempts++;
   }
 
-  Serial.println("=========================== MQTT SERVER ===========================");
+  Serial.println("=========================== SERVIDOR MQTT ===========================");
 }
+
 
 void ApiManager::handleMqttServer(Config &config){
   mqttClient.loop();
-  mqttClient.subscribe("/environments" + String(config.name));
+
+  String topic = "/environments/" + String(config.name);
+  mqttClient.subscribe(topic.c_str());
 }
 
 void ApiManager::connectToServer(Config &config) {
   HTTPClient http;
-  Serial.println("=========================== SERVER ===========================");
-  Serial.println("Connecting to server");
+  Serial.println("=========================== SERVIDOR ===========================");
+  Serial.println("Conectando ao servidor");
   
-  http.begin(client, String(config.base_url) + "environments/" + String(config.name));
+  http.begin(client, String(config.base_url) + "environments/by_key/" + String(config.name));
 
   int httpResponseCode = http.GET();
 
   if (httpResponseCode == 200) {
-    Serial.println("Server is up");
+    Serial.println("Conectado ao servidor");
     status.server = true;
     
-    String jsonResponse = http.getString();  
+    String jsonResponse = http.getString();
     DynamicJsonDocument payload(2048);
 
     DeserializationError error = deserializeJson(payload, jsonResponse);
-    if (error) {
-      Serial.println("Failed to parse JSON");
-      return;
-    }
 
     config.temperature_min = payload["temperature_min_value"] | config.temperature_min;
     config.temperature_max = payload["temperature_max_value"] | config.temperature_max;
@@ -106,14 +113,12 @@ void ApiManager::connectToServer(Config &config) {
     config.alert_light = payload["light_alert"] | config.alert_light;
 
   } else {
-    Serial.println("Server is down");
+    Serial.println("Falha ao conectar ao servidor");
     status.server = false;
   }
 
   http.end();
-
-  Serial.println("httpResponseCode: " + String(httpResponseCode));
-  Serial.println("=========================== SERVER ===========================");
+  Serial.println("=========================== SERVIDOR ===========================");
 
   delay(1000);
 }
@@ -123,21 +128,9 @@ void ApiManager::sendDataToMqtt(Config &config, String payload){
     connectToMqtt(config);
   }
 
-  mqttClient.publish(config.mqtt_topic, payload.c_str());
-}
-
-String ApiManager::getCurrentTimestamp(long timezoneOffset) {
-  configTime(timezoneOffset, 0, "pool.ntp.org", "time.nist.gov");
-
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
-    return "Falha ao obter o tempo";
-  }
-
-  char buffer[20];
-  strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &timeinfo);
-
-  return String(buffer);
+  bool status = mqttClient.publish(config.mqtt_topic, payload.c_str());
+  Serial.println("Publicando no tópico: " + String(config.mqtt_topic) + " - " + payload);
+  Serial.println("Status: " + status ? "Publicado" : "Falha ao publicar");
 }
 
 String ApiManager::getRequest(const char* serverName) {
@@ -173,8 +166,8 @@ String ApiManager::postRequest(Config &config, const String& jsonPayload, String
 void ApiManager::sendTemperatureValue(Config &config) {
   float temperatureValue = readTemperature();
 
- if (_temperature == temperatureValue)
-   return;
+  if (_temperature == temperatureValue)
+    return;
 
   String payload = "{";
   payload += "\"environment\":\"" + String(config.name) + "\",";
@@ -203,17 +196,14 @@ void ApiManager::sendHumidityValue(Config &config)
   payload += "}";
 
   sendDataToMqtt(config, payload);
-
-  //Serial.println("Server Response: " + response);
   
   _humidity = humidityValue;
 }
 
-void ApiManager::sendMQ2Value(Config &config)
-{
+void ApiManager::sendMQ2Value(Config &config) {
   float mq2Value = readMQ2();
 
-  if (_mq2 == mq2Value)
+  if (roundf(mq2Value * 2.0f) / 2.0 == _mq2) 
     return;
   
   String payload = "{";
@@ -223,17 +213,13 @@ void ApiManager::sendMQ2Value(Config &config)
   payload += "\"value\":" + String(mq2Value);
   payload += "}";
 
-
   sendDataToMqtt(config, payload);
 
-  //Serial.println("Server Response: " + response);
-  
-  _mq2 = mq2Value;
+  _mq2 = roundf(mq2Value * 2.0f) / 2.0;
 }
 
 void ApiManager::sendNoiseValue(Config &config){
-  float noiseValue = readNoise();
-  
+  int noiseValue = readNoise();
   if (_noise == noiseValue)
     return;
 
@@ -270,7 +256,7 @@ void ApiManager::sendPresenceValue(Config &config)
 
 void ApiManager::sendLDRValue(Config &config)
 {
-  float ldrValue = readLDR();
+  int ldrValue = readLDR();
 
   if (_ldr == ldrValue)
     return;
@@ -325,7 +311,7 @@ void ApiManager::sendIpValue(Config &config){
 
 void ApiManager::sendMemoryValue(Config &config)
 {
-  float memoryValue = readMemoryUsage();
+  int memoryValue = readMemoryUsage();
   
   if (_memory == memoryValue)
     return;
@@ -343,8 +329,7 @@ void ApiManager::sendMemoryValue(Config &config)
 }
 
 void ApiManager::sendCpuValue(Config &config){
-  float cpuValue = readCpuUsage();
-  
+  int cpuValue = readCpuUsage();
   
   if (_cpu == cpuValue)
     return;
@@ -380,9 +365,10 @@ void ApiManager::sendUptimeValue(Config &config){
 }
 
 void ApiManager::sendInternalTemperatureValue(Config &config){
-  float internalTemperatureValue = temperatureRead();
-  
-  if (__internal_temperature == internalTemperatureValue)
+  float fInternalTemperatureValue = temperatureRead();
+  int internalTemperatureValue = (int)fInternalTemperatureValue;
+
+  if (_internal_temperature == internalTemperatureValue)
     return;
   
   String payload = "{";
@@ -394,7 +380,7 @@ void ApiManager::sendInternalTemperatureValue(Config &config){
 
   sendDataToMqtt(config, payload);
 
-  __internal_temperature = internalTemperatureValue;
+  _internal_temperature = internalTemperatureValue;
 }
 
 void ApiManager::sendVoltageValue(Config &config){
@@ -434,6 +420,9 @@ bool ApiManager::pingToServer(Config &config) {
 
 unsigned long previousTImeInternalValue = 0;
 void ApiManager::sendData(Config &config) {
+  if(!status.server)
+    return;
+
   sendTemperatureValue(config);
   sendHumidityValue(config);
   sendMQ2Value(config);
@@ -442,7 +431,7 @@ void ApiManager::sendData(Config &config) {
   sendLDRValue(config);
   
   unsigned long currentMillis = millis();
-  if (currentMillis - previousTImeInternalValue >= 1000) {
+  if (currentMillis - previousTImeInternalValue >= 5000) {
 
     sendWifiValue(config);
     sendMemoryValue(config);

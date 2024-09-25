@@ -104,10 +104,10 @@ const char MAIN_page[] PROGMEM = R"=====(
 
       h3 {
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 23px;
         margin-top: 0;
         color: #D9D9D9;
-        font-size: 25px;
+        font-size: 20px;
       }
 
       td {
@@ -347,15 +347,18 @@ const char MAIN_page[] PROGMEM = R"=====(
 
   <body>
     <div id="toast" class="toast hidden"></div>
-
     <div class="container">
+      <div class="section" style="display: flex; align-items: center; justify-content: center;" >
+        <h2 style="color: #fff; font-size: 30px;"> name1_env </h2>
+      </div>
+      <div class="section" style="display: flex; align-items: center; justify-content: center;">
+        <form action='/action_form_restart' method='post'>
+          <button class="button"
+                    style="color: #000; background-color: #D9D9D9; font-size: 15px; height: 30px; max-width: 200px; border: 1px solid #B0B0B0;">Reiniciar dispostivo</button>
+        </form>
+      </div>
       <div class="section">
-        <h3> Configuração Wi-Fi</h3>
-        <div style="display: flex; align-items: center; justify-content: flex-end; margin-bottom: 10px;">
-          <button class="button" style="width: 50px;" onclick="">
-            <span style="font-size: 20px;">&#x21bb;</span>
-          </button>
-        </div>
+        <h4> Configuração Wi-Fi</h4>
         <div class="field-group">
           <table
             style="width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 10px; overflow: hidden; border: 1px solid #B0B0B0;">
@@ -373,13 +376,19 @@ const char MAIN_page[] PROGMEM = R"=====(
         </div>
       </div>
       <div class="section">
-        <h3>Configurações Dispositivo</h3>
+        <h4>Configurações Dispositivo</h4>
         <form action='/action_form_credentials' method='post'>
           <div class="field-group">
-            name_input
+            <span style="color: #D9D9D9; margin-bottom: 5px;">Nome do dispositivo</span>
+            name2_input
           </div>
           <div class="field-group">
+            <span style="color: #D9D9D9; margin-bottom: 5px;">Url do servidor</span>
             base_url_input
+          </div>
+          <div class="field-group">
+            <span style="color: #D9D9D9; margin-bottom: 5px;">MQTT</span>
+            mqtt_url_input
           </div>
           <div class="field-group" style="display: flex; align-items: center; justify-content: center;">
             <button class="button"
@@ -437,9 +446,16 @@ String listSSID()
 }
 
 String setConfig(String index) {
-  index.replace("name_input", "<input class='text-field' type='text' name='name' maxlength='32' placeholder='Name' value='" + String(config.name) + "'>");
+  index.replace("name1_env", String(config.name));
+  index.replace("name2_input", "<input class='text-field' type='text' name='name' maxlength='32' placeholder='Name' value='" + String(config.name) + "'>");
   index.replace("base_url_input", "<input class='text-field' type='text' name='base_url' maxlength='64' placeholder='Server url' value='" + String(config.base_url) + "'>");
-  Serial.println(index);
+  index.replace(
+  "mqtt_url_input",
+    "<div style='display: flex; align-items: center; gap: 10px;'> \
+     <input class='text-field' type='text' name='base_url' maxlength='64' placeholder='MQTT url' value='" + String(config.mqtt_url) + "' style='flex: 2;'> \
+     <input class='text-field' type='text' name='mqtt_port' maxlength='5' placeholder='Port' value='" + String(config.mqtt_port) + "' style='flex: 1;'> \
+    </div>"
+  );
   return index;
 }
 
@@ -481,11 +497,11 @@ void handleFormCredentials()
 {
   String name = server.arg("name");
   String base_url = server.arg("base_url");
-  Serial.println("name: " + name);
-  Serial.println("base_url: " + base_url);
   
   strncpy(config.name, name.c_str(), sizeof(config.name) - 1);
   strncpy(config.base_url, base_url.c_str(), sizeof(config.base_url) - 1);
+  strncpy(config.mqtt_url, server.arg("mqtt_url").c_str(), sizeof(config.mqtt_url) - 1);
+  config.mqtt_port = server.arg("mqtt_port").toInt();
   saveConfig(config);
 
   handleRoot();
@@ -500,12 +516,6 @@ void handleFormCredentials()
     String alertLight = request->getParam("alert_light", true)->value();
     String alertSound = request->getParam("alert_sound", true)->value();
 
-    Serial.println("Sensor Key: " + sensorKey);
-    Serial.println("Min Value: " + minValue);
-    Serial.println("Max Value: " + maxValue);
-    Serial.println("Alert Notification: " + alertNotification);
-    Serial.println("Alert Light: " + alertLight);
-    Serial.println("Alert Sound: " + alertSound);
 
     request->send(200, "text/plain", "Configuração salva!");
   } else {
@@ -514,13 +524,20 @@ void handleFormCredentials()
 }*/
 
 void setupHttpServer() {
+  Serial.println("\n=========================== HTTP SERVER ===========================");
+  Serial.println("Iniciando HTTP server...");
   server.on("/", HTTP_GET, handleRoot);
   server.on("/action_new_connection", handleFormConnection);
   server.on("/action_form_credentials", handleFormCredentials);
-  //serverAsync.on("/update_config", HTTP_POST, update_config);
-
+  server.on("/action_form_restart", HTTP_POST, []() {
+    server.send(200, "text/plain", "Reiniciando dispositivo...");
+    delay(1000);
+    ESP.restart();
+  });
+  
   server.begin();
-  //serverAsync.begin();
+
   Serial.println("HTTP server iniciado");
   Serial.println("Accesse http://" + WiFi.localIP().toString() + " para configurar o dispositivo");
+  Serial.println("=========================== HTTP SERVER ===========================");
 }

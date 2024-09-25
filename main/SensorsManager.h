@@ -14,26 +14,24 @@
 #define MQ2BOARD "ESP8266"
 #define MQ2ADCBITRESOLUTION 10
 #define MQ2RATIOCLEANAIR 60
+#define MQ2VOLTAGERESOLUTION 5
 #else
+#define LDR_PIN 36
+#define PRESENCE_PIN 12
+#define MQ2PIN 38
 #define DHTPIN 27
-#define MQ2PIN 34
-#define LDR_PIN 12
-#define PRESENCE_PIN 13
 #define NOISE_PIN 32
-#define BUZZER_PIN 25
 #define LED_PIN 33
-#define VOLTAGE_PIN 36
-#define MQ2BOARD "ESP-32"
-#define MQ2ADCBITRESOLUTION 12
-#define MQ2RATIOCLEANAIR 9.83
-
+#define BUZZER_PIN 23
+#define VOLTAGE_PIN 23
+#define MQ2BOARD ("ESP-32")
+#define MQ2ADCBITRESOLUTION (12)
+#define MQ2RATIOCLEANAIR (9.83)
+#define MQ2VOLTAGERESOLUTION (3.3)
 #endif
 
 #define DHTTYPE DHT11
-
-
-#define MQ2TYPE "MQ-2"
-#define MQ2VOLTAGERESOLUTION 3.3
+#define MQ2TYPE ("MQ-2")
 
 extern DHT dht;
 extern MQUnifiedsensor MQ2;
@@ -50,6 +48,7 @@ struct sensorsStatus
   bool noise = true;
   bool wifi = true;
   bool server = true;
+  bool mqtt = true;
 };
 extern sensorsStatus status;
 
@@ -58,11 +57,12 @@ float readLDR();
 float readTemperature();
 float readHumidity();
 float readMQ2();
-float readMemoryUsage();
 bool readPresence();
-float readNoise();
-float readCpuUsage();
-float readVoltage();
+int readNoise();
+int readMemoryUsage();
+int readCpuUsage();
+int readVoltage();
+int temperatureInternalRead();
 void checkTemperature(Config &config);
 void checkSensorStatus(Config &config);
 String getServerStatus();

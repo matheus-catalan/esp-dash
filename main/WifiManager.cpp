@@ -41,7 +41,7 @@ bool connectToWiFi(String ssidWifi, String passwordWifi) {
     }
     else if (WiFi.status() == WL_CONNECT_FAILED)
     {
-      Serial.println("falha ao conectar ao wifi");
+      Serial.println("\nfalha ao conectar ao wifi");
     }
     attempts++;
   }

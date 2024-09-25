@@ -20,8 +20,7 @@ void debugEEPROM(int address, size_t length) {
 }
 
 void clearEEPROM() {
-  // Define o tamanho da EEPROM (ajuste conforme necessário)
-  const int EEPROM_SIZE = 512;  // Tamanho típico para ESP8266 e ESP32 é 512 bytes
+  const int EEPROM_SIZE = 512;
 
   // Itera sobre todos os endereços da EEPROM e escreve o valor 0xFF
   for (int i = 0; i < EEPROM_SIZE; ++i) {
@@ -66,14 +65,14 @@ void setup() {
 unsigned long previous = 0;
 
 void loop() {
-  //handleClient();
-  apiManager.handleMqttServer();
+  handleClient();
+  apiManager.handleMqttServer(config);
   drawHomeScreen(config.name, getWifiStatus(), getWifiSSID(), getWifiIP(), getServerStatus(), getPasswd());
-  //checkSensorStatus(config);
+  readMQ2();
+  checkSensorStatus(config);
   unsigned long currentMillis = millis();
-  
   if (currentMillis - previous >= 1000) {
-    Serial.println("Sending data...");
+    //Serial.println("Sending data...");
     apiManager.sendData(config);
     //apiManager.pingToServer(config);
     previous = currentMillis;

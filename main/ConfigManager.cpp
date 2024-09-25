@@ -111,8 +111,7 @@ void saveConfig(const Config &config) {
   EEPROM.commit();
 }
 
-void updateConfigField(Config &config, const String &field, const String &value) {
-  // Mapeamento de campos para ponteiros
+void updateConfigField(const String &field, const String &value) {
   static const struct {
     const char* name;
     void* pointer;
@@ -165,8 +164,36 @@ void updateConfigField(Config &config, const String &field, const String &value)
           *reinterpret_cast<int*>(fieldEntry.pointer) = value.toInt();
         }
       }
+      Serial.println("Configuração Atualiza: " + field + " = " + value);
       return;
     }
   }
-  Serial.println("Unknown field: " + field);
+  Serial.println("Configuração desconhecida: " + field);
+}
+
+void onMessage(char* topic, byte* payload, unsigned int length) {
+    String message;
+    for (int i = 0; i < length; i++) {
+        message += (char)payload[i];
+    }
+
+    Serial.println("Mensagem recebida no tópico: " + String(topic));
+    Serial.print("Conteúdo da mensagem: " + String(message));
+
+    StaticJsonDocument<256> doc;
+
+    DeserializationError error = deserializeJson(doc, message);
+
+    if (error) {
+        Serial.print("Erro ao analisar JSON: ");
+        Serial.println(error.c_str());
+        return;
+    }
+
+    for (JsonPair kv : doc.as<JsonObject>()) {
+        String field = kv.key().c_str();
+        String value = kv.value().as<String>();
+        
+        updateConfigField(field, value);
+    }
 }
